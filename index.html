@@ -10,7 +10,7 @@
 <meta name="description" content="个人生活管理工作台 - 待办、记账、阅读、创作一站式管理">
 <title>绿洲工作台 - 个人生活管理系统</title>
 <link rel="manifest" href="manifest.json">
-<script src="xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.20.3/dist/xlsx.full.min.js"></script>
 <style>
 /* ==================== 基础重置与变量 ==================== */
 :root {
@@ -140,7 +140,7 @@ a { color: var(--green-600); text-decoration: none; }
   white-space: nowrap;
   position: relative;
 }
-.nav-item:hover { background: rgba(255,255,255,0.1); color: #fff; }
+.nav-item:hover { background: rgba(255,255,0.1); color: #fff; }
 .nav-item.active { background: rgba(255,255,0.15); color: #fff; }
 .nav-item.active::before {
   content: '';
@@ -308,4 +308,973 @@ a { color: var(--green-600); text-decoration: none; }
 }
 .todo-check.checked { background: var(--green-500); border-color: var(--green-500); }
 .todo-check.checked::after { content: '✓'; color: #fff; font-size: 13px; font-weight: bold; }
-.todo-text { ...
+.todo-text { flex: 1; font-size: 13px; }
+.todo-item.done .todo-text { text-decoration: line-through; color: var(--text-muted); }
+.todo-meta { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+/* 标签 */
+.tag {
+  display: inline-block;
+  padding: 2px 8px;
+  background: var(--green-50);
+  border: 1px solid var(--green-200);
+  color: var(--green-700);
+  border-radius: 4px;
+  font-size: 11px;
+  margin: 2px;
+}
+/* 模态框 */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.4);
+  z-index: 200;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+.modal-overlay.show { display: flex; }
+.modal {
+  background: #fff;
+  border-radius: var(--radius);
+  width: 100%;
+  max-width: 500px;
+  max-height: 80vh;
+  overflow-y: auto;
+  box-shadow: var(--shadow-lg);
+}
+.modal-header {
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.modal-title { font-size: 16px; font-weight: 700; }
+.modal-close { font-size: 20px; color: var(--text-muted); width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; border-radius: 50%; }
+.modal-close:hover { background: var(--green-50); }
+.modal-body { padding: 20px; }
+.modal-footer { padding: 16px 20px; border-top: 1px solid var(--border); display: flex; gap: 8px; justify-content: flex-end; }
+/* 空状态 */
+.empty-state {
+  text-align: center;
+  padding: 40px 20px;
+  color: var(--text-muted);
+}
+.empty-state .icon { font-size: 40px; margin-bottom: 8px; opacity: 0.5; }
+.empty-state .text { font-size: 13px; }
+/* Toast */
+.toast {
+  position: fixed;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%) translateY(100px);
+  background: var(--green-700);
+  color: #fff;
+  padding: 10px 20px;
+  border-radius: 20px;
+  font-size: 13px;
+  z-index: 300;
+  transition: transform 0.3s;
+  box-shadow: var(--shadow-lg);
+}
+.toast.show { transform: translateX(-50%) translateY(0); }
+/* 列表项 */
+.list-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border);
+}
+.list-item:last-child { border-bottom: none; }
+/* 移动端遮罩 */
+.mobile-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.3);
+  z-index: 99;
+}
+.mobile-overlay.show { display: block; }
+/* 移动端适配 */
+@media (max-width: 768px) {
+  .sidebar {
+    position: fixed;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    transform: translateX(-100%);
+    transition: transform 0.3s;
+  }
+  .sidebar.mobile-open { transform: translateX(0); }
+  .sidebar.collapsed { width: var(--sidebar-w); transform: translateX(-100%); }
+  .sidebar.collapsed.mobile-open { transform: translateX(0); }
+  .sidebar.collapsed .sidebar-title,
+  .sidebar.collapsed .nav-label,
+  .sidebar.collapsed .nav-section-title,
+  .sidebar.collapsed .sidebar-footer-text { opacity: 1; }
+  .sidebar-toggle { display: none; }
+  .content { padding: 12px; }
+  .topbar { padding: 0 12px; }
+  .card { padding: 14px; }
+}
+/* 模块隐藏 */
+.module-view { display: none; }
+.module-view.active { display: block; }
+/* 过滤标签 */
+.filter-tabs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; }
+.filter-tab {
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+  border: 1px solid var(--border);
+  color: var(--text-light);
+  transition: all 0.2s;
+}
+.filter-tab.active { background: var(--green-500); color: #fff; border-color: var(--green-500); }
+.filter-tab:hover:not(.active) { border-color: var(--green-300); color: var(--green-700); }
+/* 开关 */
+.switch { position: relative; display: inline-block; width: 40px; height: 22px; }
+.switch input { opacity: 0; width: 0; height: 0; }
+.slider {
+  position: absolute;
+  cursor: pointer;
+  inset: 0;
+  background: #ccc;
+  border-radius: 22px;
+  transition: 0.3s;
+}
+.slider::before {
+  content: '';
+  position: absolute;
+  height: 16px;
+  width: 16px;
+  left: 3px;
+  bottom: 3px;
+  background: #fff;
+  border-radius: 50%;
+  transition: 0.3s;
+}
+input:checked + .slider { background: var(--green-500); }
+input:checked + .slider::before { transform: translateX(18px); }
+/* 分类色块 */
+.cat-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+/* 设置项 */
+.setting-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border);
+}
+.setting-row:last-child { border-bottom: none; }
+.setting-label { font-size: 14px; }
+.setting-desc { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+/* 灵感卡片 */
+.inspiration-card {
+  background: var(--card-bg);
+  border-radius: var(--radius);
+  padding: 16px;
+  box-shadow: var(--shadow);
+  border-left: 4px solid var(--green-400);
+  margin-bottom: 12px;
+}
+.inspiration-card .title { font-weight: 600; margin-bottom: 6px; }
+.inspiration-card .desc { font-size: 12px; color: var(--text-light); margin-bottom: 8px; }
+.inspiration-card .meta { display: flex; gap: 8px; flex-wrap: wrap; }
+/* 视频拆解结果 */
+.bomb-point {
+  background: var(--green-50);
+  border-left: 3px solid var(--green-500);
+  padding: 10px 12px;
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  margin-bottom: 8px;
+}
+.bomb-point .label { font-size: 11px; font-weight: 700; color: var(--green-700); margin-bottom: 4px; }
+/* 标题生成结果 */
+.title-result {
+  padding: 10px 12px;
+  background: var(--green-50);
+  border-radius: var(--radius-sm);
+  margin-bottom: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.title-result .text { font-size: 13px; flex: 1; }
+/* 数据表格 */
+.data-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.data-table th { text-align: left; padding: 8px 12px; background: var(--green-50); color: var(--text-light); font-weight: 600; border-bottom: 2px solid var(--green-100); }
+.data-table td { padding: 8px 12px; border-bottom: 1px solid var(--border); }
+.data-table tr:hover td { background: var(--green-50); }
+/* 快捷输入 */
+.quick-input {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.quick-input .input { flex: 1; }
+/* 倒计时卡片 */
+.countdown-card {
+  background: linear-gradient(135deg, var(--green-500), var(--green-700));
+  color: #fff;
+  border-radius: var(--radius);
+  padding: 16px;
+  margin-bottom: 12px;
+  position: relative;
+  overflow: hidden;
+}
+.countdown-card .days {
+  font-size: 36px;
+  font-weight: 800;
+  line-height: 1;
+}
+.countdown-card .label { font-size: 12px; opacity: 0.9; }
+.countdown-card .event-name { font-size: 15px; font-weight: 600; margin-top: 4px; }
+.countdown-card .date { font-size: 11px; opacity: 0.7; }
+.countdown-card.past { background: linear-gradient(135deg, #95a5a6, #7f8c8d); }
+/* 阅读日历热力图 */
+.read-heatmap { display: grid; grid-template-columns: repeat(7, 1fr); gap: 3px; }
+.heat-cell {
+  aspect-ratio: 1;
+  border-radius: 3px;
+  background: var(--green-50);
+  font-size: 9px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+}
+.heat-cell.l1 { background: var(--green-100); }
+.heat-cell.l2 { background: var(--green-200); }
+.heat-cell.l3 { background: var(--green-400); }
+.heat-cell.l4 { background: var(--green-600); color: #fff; }
+/* 段落选择 */
+.segmented {
+  display: inline-flex;
+  background: var(--green-50);
+  border-radius: var(--radius-sm);
+  padding: 2px;
+}
+.segmented button {
+  padding: 4px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-light);
+}
+.segmented button.active { background: #fff; color: var(--green-700); box-shadow: var(--shadow); }
+/* 加载动画 */
+.spinner {
+  display: inline-block;
+  width: 16px; height: 16px;
+  border: 2px solid var(--green-100);
+  border-top-color: var(--green-500);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+/* 菜单按钮(移动端) */
+.mobile-menu-btn { display: none; }
+@media (max-width: 768px) {
+  .mobile-menu-btn { display: flex; }
+}
+.flex { display: flex; }
+.flex-1 { flex: 1; }
+.gap-8 { gap: 8px; }
+.gap-12 { gap: 12px; }
+.items-center { align-items: center; }
+.justify-between { justify-content: space-between; }
+.flex-wrap { flex-wrap: wrap; }
+.mt-8 { margin-top: 8px; }
+.mt-12 { margin-top: 12px; }
+.mt-16 { margin-top: 16px; }
+.mb-8 { margin-bottom: 8px; }
+.mb-12 { margin-bottom: 12px; }
+.mb-16 { margin-bottom: 16px; }
+.text-sm { font-size: 12px; }
+.text-muted { color: var(--text-muted); }
+.text-center { text-align: center; }
+.hidden { display: none !important; }
+</style>
+</head>
+<body>
+<div class="app">
+  <!-- ==================== 侧边栏 ==================== -->
+  <aside class="sidebar" id="sidebar">
+    <button class="sidebar-toggle" onclick="toggleSidebar()">›</button>
+    <div class="sidebar-header">
+      <div class="sidebar-logo">🌿</div>
+      <div class="sidebar-title" id="appTitle">绿洲工作台</div>
+    </div>
+    <nav class="sidebar-nav" id="sidebarNav"></nav>
+    <div class="sidebar-footer">
+      <span style="font-size:16px">⚙️</span>
+      <span class="sidebar-footer-text" onclick="navigateTo('settings')" style="cursor:pointer">设置 & 数据管理</span>
+    </div>
+  </aside>
+  <div class="mobile-overlay" id="mobileOverlay" onclick="closeMobileSidebar()"></div>
+  <!-- ==================== 主内容区 ==================== -->
+  <div class="main">
+    <div class="topbar">
+      <div class="flex items-center gap-8">
+        <button class="btn btn-ghost btn-icon mobile-menu-btn" onclick="openMobileSidebar()">☰</button>
+        <div class="topbar-title" id="topbarTitle">今日概览</div>
+      </div>
+      <div class="topbar-actions">
+        <span class="text-muted text-sm" id="currentDate"></span>
+      </div>
+    </div>
+    <div class="content" id="content">
+      <!-- 模块内容动态渲染 -->
+    </div>
+  </div>
+</div>
+<!-- 模态框 -->
+<div class="modal-overlay" id="modalOverlay">
+  <div class="modal" id="modal">
+    <div class="modal-header">
+      <div class="modal-title" id="modalTitle">标题</div>
+      <button class="modal-close" onclick="closeModal()">×</button>
+    </div>
+    <div class="modal-body" id="modalBody"></div>
+    <div class="modal-footer" id="modalFooter"></div>
+  </div>
+</div>
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+<script>
+// ==================== 数据层 ====================
+const DB = {
+  get(key, def = null) {
+    try {
+      const v = localStorage.getItem('oasis_' + key);
+      return v ? JSON.parse(v) : def;
+    } catch { return def; }
+  },
+  set(key, val) {
+    localStorage.setItem('oasis_' + key, JSON.stringify(val));
+  },
+  remove(key) { localStorage.removeItem('oasis_' + key); }
+};
+// ==================== 配置 ====================
+const MODULES = [
+  { id: 'overview', name: '今日概览', icon: '📊', section: '日常', enabled: true, customName: '' },
+  { id: 'tasks', name: '每日任务看板', icon: '✅', section: '日常', enabled: true, customName: '' },
+  { id: 'accounting', name: '记账本', icon: '💰', section: '日常', enabled: true, customName: '' },
+  { id: 'countdown', name: '重要日期倒计时', icon: '⏰', section: '日常', enabled: true, customName: '' },
+  { id: 'reading', name: '阅读打卡', icon: '📚', section: '日常', enabled: true, customName: '' },
+  { id: 'inspiration', name: '选题灵感中心', icon: '💡', section: '创作', enabled: true, customName: '' },
+  { id: 'videoAnalysis', name: '视频爆点拆解', icon: '🎬', section: '创作', enabled: true, customName: '' },
+  { id: 'scripts', name: '脚本创作库', icon: '✍️', section: '创作', enabled: true, customName: '' },
+  { id: 'review', name: '数据复盘板块', icon: '📈', section: '创作', enabled: true, customName: '' },
+  { id: 'hotspot', name: '热点雷达', icon: '📡', section: '创作', enabled: true, customName: '' },
+  { id: 'settings', name: '设置', icon: '⚙️', section: '系统', enabled: true, customName: '' },
+];
+const CATEGORIES = [
+  { id: 'food', name: '餐饮', icon: '🍜', color: '#e74c3c' },
+  { id: 'transport', name: '交通', icon: '🚇', color: '#3498db' },
+  { id: 'shopping', name: '购物', icon: '🛍️', color: '#9b59b6' },
+  { id: 'housing', name: '住房', icon: '🏠', color: '#f39c12' },
+  { id: 'entertainment', name: '娱乐', icon: '🎮', color: '#1abc9c' },
+  { id: 'medical', name: '医疗', icon: '⚕️', color: '#e67e22' },
+  { id: 'education', name: '教育', icon: '📖', color: '#2ecc71' },
+  { id: 'other', name: '其他', icon: '📌', color: '#95a5a6' },
+];
+// ==================== 状态 ====================
+let currentModule = 'overview';
+let editState = {};
+// ==================== 工具函数 ====================
+function $(s, p = document) { return p.querySelector(s); }
+function $$(s, p = document) { return [...p.querySelectorAll(s)]; }
+function todayStr() { return new Date().toISOString().slice(0, 10); }
+function fmtDate(d) {
+  const dt = new Date(d);
+  return `${dt.getMonth()+1}月${dt.getDate()}日`;
+}
+function fmtDateFull(d) {
+  const dt = new Date(d);
+  return `${dt.getFullYear()}年${dt.getMonth()+1}月${dt.getDate()}日`;
+}
+function daysBetween(d1, d2) {
+  const diff = Math.ceil((new Date(d2) - new Date(d1)) / 86400000);
+  return diff;
+}
+function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
+function escapeHtml(s) {
+  if (!s) return '';
+  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+function showToast(msg) {
+  const t = $('#toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2500);
+}
+function getModuleName(m) { return m.customName || m.name; }
+function getModules() {
+  const saved = DB.get('modules_config', null);
+  if (!saved) return MODULES;
+  return MODULES.map(m => {
+    const s = saved.find(x => x.id === m.id);
+    return s ? { ...m, ...s } : m;
+  });
+}
+// ==================== 导航 ====================
+function toggleSidebar() {
+  if (window.innerWidth <= 768) {
+    $('#sidebar').classList.toggle('mobile-open');
+    $('#mobileOverlay').classList.toggle('show');
+  } else {
+    $('#sidebar').classList.toggle('collapsed');
+  }
+}
+function openMobileSidebar() {
+  $('#sidebar').classList.add('mobile-open');
+  $('#mobileOverlay').classList.add('show');
+}
+function closeMobileSidebar() {
+  $('#sidebar').classList.remove('mobile-open');
+  $('#mobileOverlay').classList.remove('show');
+}
+function navigateTo(moduleId) {
+  currentModule = moduleId;
+  const mods = getModules();
+  const mod = mods.find(m => m.id === moduleId);
+  if (mod) $('#topbarTitle').textContent = getModuleName(mod);
+  $$('.nav-item').forEach(el => el.classList.toggle('active', el.dataset.module === moduleId));
+  renderModule();
+  closeMobileSidebar();
+  $('#content').scrollTop = 0;
+}
+function renderSidebar() {
+  const mods = getModules();
+  const sections = {};
+  mods.filter(m => m.enabled).forEach(m => {
+    if (!sections[m.section]) sections[m.section] = [];
+    sections[m.section].push(m);
+  });
+  const sectionTitles = { '日常': '🌱 日常管理', '创作': '✨ 创作工具', '系统': '🔧 系统' };
+  let html = '';
+  for (const [section, items] of Object.entries(sections)) {
+    html += `<div class="nav-section-title">${sectionTitles[section] || section}</div>`;
+    items.forEach(m => {
+      html += `<div class="nav-item ${m.id === currentModule ? 'active' : ''}" data-module="${m.id}" onclick="navigateTo('${m.id}')">
+        <span class="nav-icon">${m.icon}</span>
+        <span class="nav-label">${escapeHtml(getModuleName(m))}</span>
+      </div>`;
+    });
+  }
+  $('#sidebarNav').innerHTML = html;
+}
+// ==================== 模块渲染分发 ====================
+function renderModule() {
+  const renderers = {
+    overview: renderOverview,
+    tasks: renderTasks,
+    accounting: renderAccounting,
+    countdown: renderCountdown,
+    reading: renderReading,
+    inspiration: renderInspiration,
+    videoAnalysis: renderVideoAnalysis,
+    scripts: renderScripts,
+    review: renderReview,
+    hotspot: renderHotspot,
+    settings: renderSettings,
+  };
+  const fn = renderers[currentModule];
+  if (fn) {
+    fn();
+  } else {
+    $('#content').innerHTML = '<div class="empty-state"><div class="icon">🚧</div><div class="text">模块开发中...</div></div>';
+  }
+}
+// ==================== 模态框 ====================
+function openModal(title, bodyHtml, footerHtml = '') {
+  $('#modalTitle').textContent = title;
+  $('#modalBody').innerHTML = bodyHtml;
+  $('#modalFooter').innerHTML = footerHtml;
+  $('#modalOverlay').classList.add('show');
+}
+function closeModal() {
+  $('#modalOverlay').classList.remove('show');
+}
+$('#modalOverlay').addEventListener('click', e => {
+  if (e.target === $('#modalOverlay')) closeModal();
+});
+// ==================== 1. 今日概览 ====================
+function renderOverview() {
+  const today = todayStr();
+  const tasks = DB.get('tasks', []);
+  const todayTasks = tasks.filter(t => t.date === today);
+  const doneTasks = todayTasks.filter(t => t.done);
+  const taskRate = todayTasks.length ? Math.round(doneTasks.length / todayTasks.length * 100) : 0;
+  const records = DB.get('accounting', []);
+  const todayRecords = records.filter(r => r.date === today);
+  const todayExpense = todayRecords.reduce((s, r) => s + Number(r.amount), 0);
+  const monthStart = today.slice(0, 7) + '-01';
+  const monthRecords = records.filter(r => r.date >= monthStart);
+  const monthExpense = monthRecords.reduce((s, r) => s + Number(r.amount), 0);
+  const reading = DB.get('reading_logs', []);
+  const todayReading = reading.find(r => r.date === today);
+  const monthReading = reading.filter(r => r.date >= monthStart);
+  const scripts = DB.get('scripts', []);
+  const monthScripts = scripts.filter(s => (s.createdAt || '').slice(0, 7) === today.slice(0, 7));
+  const countdowns = DB.get('countdowns', []).filter(c => !c.archived);
+  countdowns.sort((a, b) => daysBetween(today, a.date) - daysBetween(today, b.date));
+  const upcoming = countdowns.filter(c => daysBetween(today, c.date) >= 0).slice(0, 3);
+  let html = `
+    <div class="card">
+      <div class="card-title"><span class="icon">👋</span> ${fmtDateFull(today)} ${'日一二三四五六'[new Date().getDay()]}日</div>
+      <div class="grid grid-4">
+        <div class="stat-card">
+          <div class="flex items-center justify-between">
+            <span class="stat-icon">✅</span>
+            <span class="badge ${taskRate >= 80 ? 'badge-green' : taskRate >= 50 ? 'badge-orange' : 'badge-red'}">${taskRate}%</span>
+          </div>
+          <div class="stat-value">${doneTasks.length}/${todayTasks.length}</div>
+          <div class="stat-label">今日待办完成</div>
+          <div class="progress-bar mt-8"><div class="progress-fill" style="width:${taskRate}%"></div></div>
+        </div>
+        <div class="stat-card">
+          <div class="flex items-center justify-between">
+            <span class="stat-icon">💰</span>
+            <span class="badge badge-green">今日</span>
+          </div>
+          <div class="stat-value">¥${todayExpense.toFixed(2)}</div>
+          <div class="stat-label">今日支出</div>
+          <div class="stat-trend text-muted">本月 ¥${monthExpense.toFixed(2)}</div>
+        </div>
+        <div class="stat-card">
+          <div class="flex items-center justify-between">
+            <span class="stat-icon">📚</span>
+            <span class="badge ${todayReading ? 'badge-green' : 'badge-gray'}">${todayReading ? '已打卡' : '未打卡'}</span>
+          </div>
+          <div class="stat-value">${todayReading ? todayReading.minutes : 0}<span style="font-size:14px">分钟</span></div>
+          <div class="stat-label">今日阅读</div>
+          <div class="stat-trend text-muted">本月打卡 ${monthReading.length} 天</div>
+        </div>
+        <div class="stat-card">
+          <div class="flex items-center justify-between">
+            <span class="stat-icon">✍️</span>
+            <span class="badge badge-blue">本月</span>
+          </div>
+          <div class="stat-value">${monthScripts.length}</div>
+          <div class="stat-label">创作脚本数</div>
+          <div class="stat-trend text-muted">总计 ${scripts.length} 篇</div>
+        </div>
+      </div>
+    </div>
+    <div class="grid grid-2">
+      <div class="card">
+        <div class="card-title"><span class="icon">📋</span> 今日待办</div>
+        ${todayTasks.length ? todayTasks.map(t => `
+          <div class="todo-item ${t.done ? 'done' : ''}">
+            <div class="todo-check ${t.done ? 'checked' : ''}" onclick="toggleTask('${t.id}')"></div>
+            <div class="flex-1">
+              <div class="todo-text">${escapeHtml(t.text)}</div>
+              ${t.priority ? `<span class="badge ${t.priority === '高' ? 'badge-red' : t.priority === '中' ? 'badge-orange' : 'badge-gray'}">${t.priority}</span>` : ''}
+            </div>
+          </div>
+        `).join('') : '<div class="empty-state"><div class="icon">📝</div><div class="text">今天还没有待办事项</div></div>'}
+        <button class="btn btn-outline btn-sm mt-12" onclick="navigateTo('tasks')">查看全部任务 →</button>
+      </div>
+      <div class="card">
+        <div class="card-title"><span class="icon">⏰</span> 即将到来</div>
+        ${upcoming.length ? upcoming.map(c => {
+          const days = daysBetween(today, c.date);
+          return `
+            <div class="list-item">
+              <span style="font-size:20px">${c.icon || '🎉'}</span>
+              <div class="flex-1">
+                <div style="font-weight:600">${escapeHtml(c.name)}</div>
+                <div class="text-muted text-sm">${fmtDateFull(c.date)}</div>
+              </div>
+              <span class="badge badge-green">${days === 0 ? '今天' : days + '天'}</span>
+            </div>
+          `;
+        }).join('') : '<div class="empty-state"><div class="icon">📅</div><div class="text">暂无倒计时事件</div></div>'}
+        <button class="btn btn-outline btn-sm mt-12" onclick="navigateTo('countdown')">管理倒计时 →</button>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title"><span class="icon">📈</span> 本月支出分布</div>
+      ${monthRecords.length ? renderCategoryBreakdown(monthRecords) : '<div class="empty-state"><div class="text">本月暂无记账数据</div></div>'}
+    </div>
+  `;
+  $('#content').innerHTML = html;
+}
+function renderCategoryBreakdown(records) {
+  const byCat = {};
+  records.forEach(r => { byCat[r.category] = (byCat[r.category] || 0) + Number(r.amount); });
+  const total = Object.values(byCat).reduce((a, b) => a + b, 0);
+  const sorted = Object.entries(byCat).sort((a, b) => b[1] - a[1]);
+  return sorted.map(([catId, amount]) => {
+    const cat = CATEGORIES.find(c => c.id === catId) || CATEGORIES[CATEGORIES.length - 1];
+    const pct = total ? (amount / total * 100).toFixed(1) : 0;
+    return `
+      <div class="flex items-center gap-12 mb-8">
+        <span class="cat-dot" style="background:${cat.color}"></span>
+        <span style="width:60px">${cat.icon} ${cat.name}</span>
+        <div class="flex-1 progress-bar"><div class="progress-fill" style="width:${pct}%;background:${cat.color}"></div></div>
+        <span style="width:70px;text-align:right;font-weight:600">¥${amount.toFixed(2)}</span>
+        <span class="text-muted text-sm" style="width:40px">${pct}%</span>
+      </div>
+    `;
+  }).join('');
+}
+// ==================== 2. 每日任务看板 ====================
+function renderTasks() {
+  const today = todayStr();
+  let filterDate = editState.taskDate || today;
+  const tasks = DB.get('tasks', []);
+  const dayTasks = tasks.filter(t => t.date === filterDate);
+  const done = dayTasks.filter(t => t.done);
+  const pending = dayTasks.filter(t => !t.done);
+  const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+  const tomorrow = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
+  let html = `
+    <div class="card">
+      <div class="flex items-center justify-between mb-12 flex-wrap gap-8">
+        <div class="flex items-center gap-8">
+          <button class="btn btn-ghost btn-icon" onclick="changeTaskDate(-1)">‹</button>
+          <input type="date" class="input" style="width:auto" value="${filterDate}" onchange="setTaskDate(this.value)">
+          <button class="btn btn-ghost btn-icon" onclick="changeTaskDate(1)">›</button>
+          ${filterDate !== today ? `<button class="btn btn-outline btn-sm" onclick="setTaskDate('${today}')">回到今天</button>` : ''}
+        </div>
+        <button class="btn btn-primary" onclick="openTaskModal()">+ 添加任务</button>
+      </div>
+      <div class="flex gap-12 flex-wrap">
+        <span class="badge badge-gray">总计 ${dayTasks.length}</span>
+        <span class="badge badge-green">已完成 ${done.length}</span>
+        <span class="badge badge-orange">待完成 ${pending.length}</span>
+        <span class="badge badge-blue">完成率 ${dayTasks.length ? Math.round(done.length / dayTasks.length * 100) : 0}%</span>
+      </div>
+    </div>
+    <div class="grid grid-2">
+      <div class="card">
+        <div class="card-title"><span class="icon">⏳</span> 待完成 (${pending.length})</div>
+        ${pending.length ? pending.map(t => renderTaskItem(t)).join('') : '<div class="empty-state"><div class="icon">🎉</div><div class="text">全部完成！</div></div>'}
+      </div>
+      <div class="card">
+        <div class="card-title"><span class="icon">✅</span> 已完成 (${done.length})</div>
+        ${done.length ? done.map(t => renderTaskItem(t)).join('') : '<div class="empty-state"><div class="icon">📝</div><div class="text">还没有完成的任务</div></div>'}
+      </div>
+    </div>
+  `;
+  $('#content').innerHTML = html;
+}
+function renderTaskItem(t) {
+  return `
+    <div class="todo-item ${t.done ? 'done' : ''}">
+      <div class="todo-check ${t.done ? 'checked' : ''}" onclick="toggleTask('${t.id}')"></div>
+      <div class="flex-1">
+        <div class="todo-text">${escapeHtml(t.text)}</div>
+        <div class="flex items-center gap-8 mt-8">
+          ${t.priority ? `<span class="badge ${t.priority === '高' ? 'badge-red' : t.priority === '中' ? 'badge-orange' : 'badge-gray'}">${t.priority}</span>` : ''}
+          ${t.tag ? `<span class="badge badge-blue">${escapeHtml(t.tag)}</span>` : ''}
+        </div>
+      </div>
+      <div class="flex gap-8">
+        <button class="btn btn-ghost btn-icon btn-sm" onclick="editTask('${t.id}')">✏️</button>
+        <button class="btn btn-ghost btn-icon btn-sm btn-danger" onclick="deleteTask('${t.id}')">🗑</button>
+      </div>
+    </div>
+  `;
+}
+function changeTaskDate(offset) {
+  const d = new Date(editState.taskDate || todayStr());
+  d.setDate(d.getDate() + offset);
+  editState.taskDate = d.toISOString().slice(0, 10);
+  renderTasks();
+}
+function setTaskDate(d) { editState.taskDate = d; renderTasks(); }
+function openTaskModal(id) {
+  const task = id ? DB.get('tasks', []).find(t => t.id === id) : null;
+  const date = editState.taskDate || todayStr();
+  openModal(
+    task ? '编辑任务' : '添加任务',
+    `
+      <div class="field-group">
+        <label class="field-label">任务内容</label>
+        <textarea class="textarea" id="taskText" placeholder="输入任务内容...">${task ? escapeHtml(task.text) : ''}</textarea>
+      </div>
+      <div class="grid grid-2">
+        <div class="field-group">
+          <label class="field-label">日期</label>
+          <input type="date" class="input" id="taskDate" value="${task ? task.date : date}">
+        </div>
+        <div class="field-group">
+          <label class="field-label">优先级</label>
+          <select class="select" id="taskPriority">
+            <option value="">无</option>
+            <option value="高" ${task?.priority === '高' ? 'selected' : ''}>高</option>
+            <option value="中" ${task?.priority === '中' ? 'selected' : ''}>中</option>
+            <option value="低" ${task?.priority === '低' ? 'selected' : ''}>低</option>
+          </select>
+        </div>
+      </div>
+      <div class="field-group">
+        <label class="field-label">标签</label>
+        <input type="text" class="input" id="taskTag" placeholder="如: 工作、学习、生活" value="${task ? escapeHtml(task.tag || '') : ''}">
+      </div>
+    `,
+    `<button class="btn btn-ghost" onclick="closeModal()">取消</button>
+     <button class="btn btn-primary" onclick="saveTask('${id || ''}')">保存</button>`
+  );
+}
+function saveTask(id) {
+  const text = $('#taskText').value.trim();
+  if (!text) { showToast('请输入任务内容'); return; }
+  const tasks = DB.get('tasks', []);
+  if (id) {
+    const idx = tasks.findIndex(t => t.id === id);
+    if (idx >= 0) {
+      tasks[idx].text = text;
+      tasks[idx].date = $('#taskDate').value;
+      tasks[idx].priority = $('#taskPriority').value;
+      tasks[idx].tag = $('#taskTag').value.trim();
+    }
+  } else {
+    tasks.push({ id: uid(), text, date: $('#taskDate').value, priority: $('#taskPriority').value, tag: $('#taskTag').value.trim(), done: false, createdAt: Date.now() });
+  }
+  DB.set('tasks', tasks);
+  closeModal();
+  renderTasks();
+  showToast('保存成功');
+}
+function toggleTask(id) {
+  const tasks = DB.get('tasks', []);
+  const t = tasks.find(t => t.id === id);
+  if (t) { t.done = !t.done; DB.set('tasks', tasks); renderTasks(); }
+}
+function editTask(id) { openTaskModal(id); }
+function deleteTask(id) {
+  if (!confirm('确定删除此任务？')) return;
+  let tasks = DB.get('tasks', []);
+  tasks = tasks.filter(t => t.id !== id);
+  DB.set('tasks', tasks);
+  renderTasks();
+  showToast('已删除');
+}
+// ==================== 3. 记账模块 ====================
+function renderAccounting() {
+  const today = todayStr();
+  const filterMonth = editState.acctMonth || today.slice(0, 7);
+  const records = DB.get('accounting', []);
+  const monthRecords = records.filter(r => r.date.slice(0, 7) === filterMonth).sort((a, b) => b.date.localeCompare(a.date));
+  const totalExpense = monthRecords.reduce((s, r) => s + Number(r.amount), 0);
+  const byCat = {};
+  monthRecords.forEach(r => { byCat[r.category] = (byCat[r.category] || 0) + Number(r.amount); });
+  let html = `
+    <div class="card">
+      <div class="flex items-center justify-between mb-12 flex-wrap gap-8">
+        <input type="month" class="input" style="width:auto" value="${filterMonth}" onchange="setAcctMonth(this.value)">
+        <div class="flex gap-8">
+          <button class="btn btn-outline" onclick="exportAccounting()">📥 导出Excel</button>
+          <button class="btn btn-primary" onclick="openAccountModal()">+ 记一笔</button>
+        </div>
+      </div>
+      <div class="grid grid-4">
+        <div class="stat-card">
+          <span class="stat-icon">💸</span>
+          <div class="stat-value">¥${totalExpense.toFixed(2)}</div>
+          <div class="stat-label">本月总支出</div>
+        </div>
+        <div class="stat-card">
+          <span class="stat-icon">📊</span>
+          <div class="stat-value">${monthRecords.length}</div>
+          <div class="stat-label">记录笔数</div>
+        </div>
+        <div class="stat-card">
+          <span class="stat-icon">📈</span>
+          <div class="stat-value">¥${monthRecords.length ? (totalExpense / monthRecords.length).toFixed(2) : '0.00'}</div>
+          <div class="stat-label">单笔平均</div>
+        </div>
+        <div class="stat-card">
+          <span class="stat-icon">🏷️</span>
+          <div class="stat-value">${Object.keys(byCat).length}</div>
+          <div class="stat-label">消费分类数</div>
+        </div>
+      </div>
+    </div>
+    <div class="grid grid-2">
+      <div class="card">
+        <div class="card-title"><span class="icon">📋</span> 分类统计</div>
+        ${monthRecords.length ? renderCategoryBreakdown(monthRecords) : '<div class="empty-state"><div class="text">暂无数据</div></div>'}
+      </div>
+      <div class="card">
+        <div class="card-title"><span class="icon">📒</span> 最近记录</div>
+        ${monthRecords.length ? monthRecords.slice(0, 20).map(r => {
+          const cat = CATEGORIES.find(c => c.id === r.category) || CATEGORIES[CATEGORIES.length-1];
+          return `
+            <div class="list-item">
+              <span style="font-size:18px">${cat.icon}</span>
+              <div class="flex-1">
+                <div style="font-weight:600">¥${Number(r.amount).toFixed(2)}</div>
+                <div class="text-muted text-sm">${cat.name} · ${r.date} ${r.note ? '· ' + escapeHtml(r.note) : ''}</div>
+              </div>
+              <button class="btn btn-ghost btn-icon btn-sm btn-danger" onclick="deleteAccount('${r.id}')">🗑</button>
+            </div>
+          `;
+        }).join('') : '<div class="empty-state"><div class="icon">💰</div><div class="text">点击"记一笔"开始记录</div></div>'}
+      </div>
+    </div>
+  `;
+  $('#content').innerHTML = html;
+}
+function setAcctMonth(m) { editState.acctMonth = m; renderAccounting(); }
+function openAccountModal(id) {
+  const record = id ? DB.get('accounting', []).find(r => r.id === id) : null;
+  openModal(
+    record ? '编辑记录' : '记一笔',
+    `
+      <div class="field-group">
+        <label class="field-label">金额</label>
+        <input type="number" class="input" id="acctAmount" placeholder="0.00" step="0.01" value="${record ? record.amount : ''}">
+      </div>
+      <div class="field-group">
+        <label class="field-label">分类</label>
+        <div class="flex flex-wrap gap-8">
+          ${CATEGORIES.map(c => `
+            <button class="btn btn-outline btn-sm" onclick="selectCategory('${c.id}')" id="cat-${c.id}" style="${record?.category === c.id ? 'background:var(--green-500);color:#fff;border-color:var(--green-500)' : ''}">
+              ${c.icon} ${c.name}
+            </button>
+          `).join('')}
+        </div>
+        <input type="hidden" id="acctCategory" value="${record ? record.category : 'food'}">
+      </div>
+      <div class="field-group">
+        <label class="field-label">日期</label>
+        <input type="date" class="input" id="acctDate" value="${record ? record.date : todayStr()}">
+      </div>
+      <div class="field-group">
+        <label class="field-label">备注</label>
+        <input type="text" class="input" id="acctNote" placeholder="消费说明（可选）" value="${record ? escapeHtml(record.note || '') : ''}">
+      </div>
+    `,
+    `<button class="btn btn-ghost" onclick="closeModal()">取消</button>
+     <button class="btn btn-primary" onclick="saveAccount('${id || ''}')">保存</button>`
+  );
+}
+function selectCategory(catId) {
+  $('#acctCategory').value = catId;
+  CATEGORIES.forEach(c => {
+    const el = $('#cat-' + c.id);
+    if (el) {
+      if (c.id === catId) {
+        el.style.cssText = 'background:var(--green-500);color:#fff;border-color:var(--green-500)';
+      } else {
+        el.style.cssText = '';
+      }
+    }
+  });
+}
+function saveAccount(id) {
+  const amount = parseFloat($('#acctAmount').value);
+  if (!amount || amount <= 0) { showToast('请输入有效金额'); return; }
+  const records = DB.get('accounting', []);
+  if (id) {
+    const idx = records.findIndex(r => r.id === id);
+    if (idx >= 0) {
+      records[idx].amount = amount;
+      records[idx].category = $('#acctCategory').value;
+      records[idx].date = $('#acctDate').value;
+      records[idx].note = $('#acctNote').value.trim();
+    }
+  } else {
+    records.push({ id: uid(), amount, category: $('#acctCategory').value, date: $('#acctDate').value, note: $('#acctNote').value.trim(), createdAt: Date.now() });
+  }
+  DB.set('records', records);
+  closeModal();
+  renderAccounting();
+  showToast('记账成功 💰');
+}
+function deleteAccount(id) {
+  if (!confirm('确定删除此记录？')) return;
+  let records = DB.get('accounting', []);
+  records = records.filter(r => r.id !== id);
+  DB.set('accounting', records);
+  renderAccounting();
+  showToast('已删除');
+}
+function exportAccounting() {
+  const filterMonth = editState.acctMonth || todayStr().slice(0, 7);
+  const records = DB.get('accounting', []).filter(r => r.date.slice(0, 7) === filterMonth);
+  if (!records.length) { showToast('暂无数据可导出'); return; }
+  const data = records.map(r => {
+    const cat = CATEGORIES.find(c => c.id === r.category) || CATEGORIES[CATEGORIES.length-1];
+    return { 日期: r.date, 金额: r.amount, 分类: cat.name, 备注: r.note || '' };
+  });
+  const ws = XLSX.utils.json_to_sheet(data);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, '记账');
+  XLSX.writeFile(wb, `记账_${filterMonth}.xlsx`);
+  showToast('导出成功');
+}
+// ==================== 4. 重要日期倒计时 ====================
+function renderCountdown() {
+  const today = todayStr();
+  const countdowns = DB.get('countdowns', []).filter(c => !c.archived);
+  countdowns.sort((a, b) => daysBetween(today, a.date) - daysBetween(today, b.date));
+  const upcoming = countdowns.filter(c => daysBetween(today, c.date) >= 0);
+  const past = countdowns.filter(c => daysBetween(today, c.date) < 0);
+  let html = `
+    <div class="card">
+      <div class="flex items-center justify-between">
+        <div class="card-title" style="margin:0"><span class="icon">⏰</span> 重要日期倒计时</div>
+        <button class="btn btn-primary" onclick="openCountdownModal()">+ 添加日期</button>
+      </div>
+    </div>
+  `;
+  if (upcoming.length) {
+    html += '<div class="grid grid-3">';
+    upcoming.forEach(c => {
+      const days = daysBetween(today, c.date);
+      html += `
+        <div class="countdown-card ${days < 0 ? 'past' : ''}">
+          <div class="flex items-center justify-between">
+            <div>
+              <div class="days">${days === 0 ? '今天' : days}</div>
+              <div class="label">${days === 0 ? '就是今天！' : '天后'}</div>
+            </div>
+            <span style="font-size:32px">${c.icon || '🎉'}</span>
+          </div>
+          <div class="event-name">${escapeHtml(c.name)}</div>
+          <div class="date">${fmtDateFull(c.date)}</div>
+          <div class="flex gap-8 mt-8">
+            <button class="btn btn-sm" style="background:rgba(255,255,255,0.2);color:#fff" onclick="editCountdown('${c.id}')">编辑</button>
+            <button class="btn btn-sm" style="background:rgba(255,255,255,0.2);color:#fff" onclick="deleteCountdown('${c.id}')">删除</button>
+          </div>
+        </div>
+      `;
+    });
+    html += '</div>';
+  }
+  if (past.length) {
+    html += '<div class="card mt-16"><div class="card-title"><span class="icon">📅</span> 已过日期</div>';
+    past.forEach(c => {
+      const days = Math.abs(daysBetween(today, c.date));
+      html += `
+        <div class="list-item">
+          <span style="font-size:18px">${c.icon || '🎉'}</span>
+          <div class="flex-1">
+            <div style="font-weight:600">${escapeHtml(c.name)}</div>
+            <div class="text-muted text-sm">${fmtDateFull(c.date)} · ${days}天前</div>
+          </div>
+          <button class="btn btn-ghost btn-icon btn-sm btn-danger" onclick="deleteCountdown('${c.id}')">🗑</button>
+        </div>
+      `;
+    });
+    html += '</div>';
+  }
+  if (!countdowns.length) {
+    html += '<div class="card"><div class="empty-state"><div class="icon">⏰</div><div class="text">还没有添加倒计时事件</div></div></div>';
+  }
+  $('#content').innerHTML = html;
+}
+function openCountdownModal(id) {
+  const cd = id ? DB.get('countdowns', []).find(c => c.id === id) : null;
+  const icons = ['🎉', '🎂', '💕
