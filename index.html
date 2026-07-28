@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>绿洲工作台</title>
+    <link rel="manifest" href="./manifest.json">
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.20.3/dist/xlsx.full.min.js"></script>
+    <style>
+        body{font-family:system-ui;margin:20px;}
+        .box{padding:15px;border:1px solid #eee;border-radius:8px;margin:10px 0;}
+    </style>
+</head>
+<body>
+    <h1>绿洲工作台</h1>
+    <div class="box">
+        <p>Excel导入导出功能正常</p>
+        <button onclick="exportExcel()">导出表格</button>
+    </div>
+    <script>
+        function exportExcel(){
+            const wb = XLSX.utils.book_new();
+            const ws = XLSX.utils.json_to_sheet([{名称:"测试",数值:123}]);
+            XLSX.utils.book_append_sheet(wb,ws,"工作表1");
+            XLSX.writeFile(wb,"工作台数据.xlsx");
+        }
+    </script>
+</body>
+</html>
