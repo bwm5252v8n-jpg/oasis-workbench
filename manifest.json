@@ -1,0 +1,8 @@
+{
+  "name": "绿洲工作台",
+  "short_name": "工作台",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#4285f4"
+}
